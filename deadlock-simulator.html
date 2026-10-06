@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadlock Detection & Prevention Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+:root{--mute:rgba(255,255,255,.68);--glass:rgba(255,255,255,.1);--edge:rgba(255,255,255,.36);--pink:#ffc2d6;--pink2:#f48fb1;--ok:#a6f0c6;--bad:#ffa3b0;--gold:#ffe3a3}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:#fff;font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.55;
+  background:radial-gradient(800px 600px at 88% 18%,rgba(220,150,210,.5),transparent 60%),linear-gradient(135deg,#4a5aa8 0%,#6e62b2 50%,#9470b6 100%) fixed}
+[hidden]{display:none!important}
+h1,h2,h3{margin:0;font-weight:500;letter-spacing:-.01em;line-height:1.2}
+h2{text-align:center;font-size:clamp(1.6rem,3.4vw,2.3rem)}
+.lead{max-width:620px;margin:12px auto 26px;text-align:center;color:var(--mute)}
+.muted{color:var(--mute)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+
+/* Glass nav */
+#nav{position:sticky;top:12px;z-index:50;width:min(1020px,calc(100% - 24px));margin:12px auto 0;display:flex;align-items:center;gap:4px;padding:8px 10px 8px 18px;overflow-x:auto;scrollbar-width:none;
+  background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--edge);border-radius:999px;box-shadow:0 10px 30px rgba(40,20,80,.3)}
+#nav::-webkit-scrollbar{display:none}
+.logo{margin-right:auto;padding-right:16px;white-space:nowrap;font-weight:600;color:var(--pink)}
+#nav a{padding:8px 14px;border-radius:999px;white-space:nowrap;color:var(--mute);text-decoration:none;font-size:.86rem;transition:.2s}
+#nav a:hover{color:#fff;background:rgba(255,255,255,.14)}
+#nav a.active{color:#4a2a5a;background:linear-gradient(180deg,#ffd6e3,var(--pink2));font-weight:500}
+
+/* Big glass frames */
+main{position:relative;z-index:1;width:min(1020px,calc(100% - 24px));margin:18px auto 30px}
+section{scroll-margin-top:84px;margin-bottom:22px;padding:44px 28px;border-radius:30px;border:1px solid var(--edge);
+  background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.05));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 50px rgba(40,20,90,.25)}
+.label-pill{display:block;width:fit-content;margin:0 auto 14px;padding:5px 16px;border-radius:999px;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:var(--glass);border:1px solid var(--edge)}
+#dashboard{padding-top:80px;padding-bottom:64px}
+.hero h1{text-align:center;font-weight:500;font-size:clamp(2.1rem,5.2vw,3.5rem)}
+
+/* Feature-style cards: small caps title, divider, content */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:18px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;margin:18px 0;align-items:start}
+.card{padding:20px 22px;border-radius:24px;border:1px solid var(--edge);background:rgba(255,255,255,.09);transition:transform .25s,box-shadow .25s,border-color .25s}
+.card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.6);box-shadow:0 16px 36px rgba(60,30,110,.35)}
+.card h3{font-size:.8rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--edge)}
+.card p,.card li{color:rgba(255,255,255,.85);font-size:.93rem}
+.card b{font-weight:600;color:#fff}
+.card ol{padding-left:20px;margin:0}
+.card small{display:block;color:var(--mute);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.cards .card strong{display:block;font-size:1.6rem;font-weight:500}
+.card.ok{border-color:rgba(166,240,198,.7);box-shadow:0 0 30px rgba(166,240,198,.2)}
+.card.bad{border-color:rgba(255,163,176,.75);box-shadow:0 0 30px rgba(255,150,170,.25)}
+.card.ok,.card.bad{color:#fff}
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;text-align:center}
+
+/* Buttons */
+.bar{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px;margin:22px 0}
+button{font:inherit;font-size:.9rem;font-weight:500;cursor:pointer;padding:11px 22px;border-radius:999px;color:#fff;background:var(--glass);border:1px solid var(--edge);transition:.2s}
+button:hover{transform:translateY(-2px);background:rgba(255,255,255,.2);box-shadow:0 8px 22px rgba(60,30,110,.35)}
+button.primary{color:#4a2a5a;border-color:transparent;background:linear-gradient(180deg,#ffd9e6,var(--pink2));box-shadow:0 6px 22px rgba(244,143,177,.5)}
+button.primary:hover{background:linear-gradient(180deg,#ffe4ee,#f7a2c0)}
+button.danger{color:#ffd0d8;border-color:rgba(255,163,176,.7)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Inputs and tables */
+label{display:inline-flex;align-items:center;gap:10px;color:var(--mute);font-size:.9rem}
+input{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid var(--edge);border-radius:12px;padding:8px 10px}
+input[type=number]{width:70px;text-align:center}
+input:focus{outline:none;border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,194,214,.3)}
+#allocT,#maxT,#availT,#needT,#detectOut,#results{overflow-x:auto}
+table{border-collapse:separate;border-spacing:6px;margin:0 auto;font-size:.9rem}
+th{color:var(--pink);font-weight:500;font-size:.78rem;padding:4px 8px}
+td{text-align:center;padding:4px 10px;border-radius:8px}
+td input{width:56px}
+tr.active td,tr.active th{background:rgba(255,226,163,.22);color:var(--gold)}
+.changed{color:var(--gold);animation:pulse 1.2s ease-out;display:inline-block}
+@keyframes pulse{0%{transform:scale(1.3);text-shadow:0 0 16px var(--gold)}100%{transform:scale(1)}}
+.error{margin:14px 0;padding:12px 16px;border-radius:16px;color:#fff;background:rgba(255,120,140,.25);border:1px solid var(--bad)}
+
+/* Safe sequence badges */
+.seq{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:8px 0}
+.seq-badge{padding:8px 18px;border-radius:999px;font-weight:600;color:#4a2a5a;background:linear-gradient(180deg,#ffd9e6,var(--pink2));box-shadow:0 0 16px rgba(255,194,214,.6);animation:in .5s both;animation-delay:calc(var(--i,0)*.18s)}
+.seq-badge.bad{color:#5a1f2c;background:linear-gradient(180deg,#ffc9d1,#ff8fa3)}
+.seq-arrow{color:var(--pink);font-weight:700}
+@keyframes in{from{opacity:0;transform:translateY(8px) scale(.9)}to{opacity:1;transform:none}}
+
+/* Graph */
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-bottom:14px;color:var(--mute);font-size:.85rem}
+.k{display:inline-block;width:26px;height:0;vertical-align:middle;margin-right:6px}
+.k.alloc{border-top:3px solid var(--ok)}.k.req{border-top:3px dashed var(--pink)}
+.k.avail{width:12px;height:12px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold)}
+#graph{display:block;width:100%;height:auto;border-radius:18px;background:rgba(40,20,90,.28)}
+#graph text{fill:#fff;font-size:13px;text-anchor:middle}
+#graph .ea{stroke:var(--ok);stroke-width:2;opacity:.8}
+#graph .er{stroke:var(--pink);stroke-width:2;stroke-dasharray:6 5;opacity:.8}
+#graph .nd{fill:rgba(255,255,255,.14);stroke:#fff;stroke-width:2}
+#graph .nd.good{fill:rgba(166,240,198,.3);stroke:var(--ok)}
+#graph .nd.bad{fill:rgba(255,150,170,.3);stroke:var(--bad)}
+#graph .nd.rs{stroke:var(--pink)}
+#graph .nd.cur{stroke:var(--gold);stroke-width:3;filter:drop-shadow(0 0 8px var(--gold))}
+
+/* Step-by-step */
+.split{display:grid;grid-template-columns:minmax(200px,1fr) 2fr;gap:22px}
+.tl{list-style:none;margin:0;padding:0;max-height:300px;overflow-y:auto;font-size:.88rem}
+.tl li{padding:5px 0;color:var(--mute)}.tl li.done{color:var(--ok)}.tl li.now{color:var(--gold);font-weight:600}
+.stepbox h3{text-align:left}
+.prog{height:8px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--pink2));transition:width .4s}
+
+/* Learn accordion */
+.card.acc h3{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;padding:0;border:0;text-align:left}
+.card.acc h3::after{content:"+";font-size:1.4rem;font-weight:300;transition:transform .25s}
+.card.acc.open h3::after{transform:rotate(45deg)}
+.card.acc>:not(h3){display:none}
+.card.acc.open>:not(h3){display:block}
+.card.acc.open h3{padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--edge)}
+.card.acc.open{border-color:var(--pink);box-shadow:0 0 28px rgba(255,194,214,.3)}
+
+/* Footer */
+.foot{position:relative;z-index:1;width:min(1020px,calc(100% - 24px));margin:0 auto 24px;padding:34px 30px;border-radius:30px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:28px;
+  border:1px solid var(--edge);background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.05));backdrop-filter:blur(14px)}
+.foot p{margin:6px 0;max-width:360px;font-size:.92rem}
+.foot h3{font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+.foot-links{display:flex;flex-direction:column;gap:6px}
+.foot-links a{color:var(--mute);text-decoration:none;font-size:.9rem}.foot-links a:hover{color:#fff}
+
+/* Falling petals */
+.petals{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.petal{position:absolute;top:-30px;width:var(--s);height:calc(var(--s)*.75);background:linear-gradient(135deg,#ffd9e6,#f6a5c3);border-radius:150% 0 150% 0;opacity:.8;animation:fall var(--d) linear var(--w) infinite;will-change:transform}
+@keyframes fall{from{transform:translate3d(0,-5vh,0) rotate(0)}to{transform:translate3d(var(--x),110vh,0) rotate(600deg)}}
+
+@media (max-width:700px){section{padding:30px 14px;border-radius:24px}#dashboard{padding-top:54px}.split{grid-template-columns:1fr}td input{width:46px}button{padding:12px 18px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.petals{display:none}}
+
+/* Request check + select */
+select{font:inherit;color:#fff;background:rgba(255,255,255,.14);border:1px solid var(--edge);border-radius:12px;padding:8px 10px}
+select option{color:#2a1a4a}
+.reqin{display:inline-flex;flex-wrap:wrap;gap:10px}
+#reqCard{margin-top:16px}
+.exit-present{position:fixed;top:14px;right:14px;z-index:100}
+
+/* Presentation mode: hide extras, enlarge results */
+.present #nav,.present #learn,.present .foot,.present #input .lead,.present #input .bar,.present #reqCard,.present .label-pill{display:none}
+.present main{width:min(1240px,calc(100% - 24px))}
+.present table{font-size:1.15rem}
+.present td input{font-size:1.1rem;width:64px}
+.present .cards .card strong{font-size:2.3rem}
+.present .seq-badge{font-size:1.5rem;padding:12px 28px}
+.present .card.ok h3,.present .card.bad h3{font-size:1.2rem}
+.present #graph{min-height:420px}
+.present .tl{max-height:420px;font-size:1rem}
+.present .stepbox p,.present #stepOut p{font-size:1.1rem}
+
+/* ===== Matrices fit in their boxes (no sideways scrolling) ===== */
+#input .grid{grid-template-columns:1fr 1fr}
+#input .grid .card:nth-child(3){grid-column:1/-1}
+#allocT table,#maxT table,#availT table{width:100%;table-layout:fixed;border-spacing:4px}
+#availT table{max-width:560px}
+#allocT th:first-child,#maxT th:first-child,#availT th:first-child{width:50px}
+td input{width:100%;min-width:0;padding:8px 4px;-moz-appearance:textfield}
+td input::-webkit-outer-spin-button,td input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.present td input{width:100%}
+#allocT,#maxT,#availT,#needT{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.5) transparent}
+@media (max-width:700px){#input .grid{grid-template-columns:1fr}}
+
+/* ===== Dark headings on light plates so they stand out ===== */
+h2{width:fit-content;margin-left:auto;margin-right:auto;padding:6px 28px;border-radius:18px;color:#2b1450;background:rgba(255,255,255,.85);box-shadow:0 6px 20px rgba(60,30,110,.25)}
+.hero h1{color:#2b1450;text-shadow:0 2px 20px rgba(255,255,255,.7)}
+.card>h3{margin:-20px -22px 16px;padding:12px 16px;border:0;border-radius:24px 24px 0 0;color:#3b1a66;font-weight:600;background:rgba(255,255,255,.85)}
+.card.acc>h3{display:flex;margin:-20px -22px 0;padding:14px 18px;border-radius:24px;text-align:left}
+.card.acc.open>h3{margin-bottom:16px;border-radius:24px 24px 0 0}
+.card.acc>h3::after{color:#b0306a}
+#stepOut h3{display:inline-block;padding:4px 14px;margin-bottom:10px;border-radius:12px;color:#3b1a66;background:rgba(255,255,255,.85);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase}
+
+/* ===== Blossom tree background ===== */
+.tree{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.9}
+section{backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.05)),rgba(70,50,130,.24)}
+
+</style>
+</head>
+<body>
+<nav id="nav">
+  <b class="logo">DeadlockSim</b>
+  <a href="#dashboard">Dashboard</a><a href="#input">Input</a><a href="#banker">Banker's Algorithm</a>
+  <a href="#detect">Deadlock Detection</a><a href="#viz">Visualization</a><a href="#steps">Step-by-Step</a><a href="#learn">Learn</a>
+</nav>
+<main>
+<section id="dashboard">
+  <header class="hero"><span class="label-pill">OS Laboratory</span><h1>Deadlock Detection &amp; Prevention Simulator</h1><p class="lead">Enter a resource-allocation state, run Banker's Algorithm, and see whether every process can still finish.</p></header>
+  <div class="cards">
+    <div class="card"><small>Processes</small><strong id="statN">0</strong></div>
+    <div class="card"><small>Resources</small><strong id="statM">0</strong></div>
+    <div class="card"><small>System status</small><strong id="statSys">Not run</strong></div>
+    <div class="card"><small>Safe / Unsafe</small><strong id="statSafe">-</strong></div>
+  </div>
+  <div class="bar">
+    <button class="primary" id="btnRun">Run Simulation</button>
+    <button id="btnStep">Run Step-by-Step</button>
+    <button id="btnSafe">Load Safe Example</button>
+    <button id="btnUnsafe">Load Unsafe Example</button>
+    <button class="danger" id="btnReset">Reset</button>
+    <button id="btnPresent">Presentation Mode</button>
+  </div>
+</section>
+
+<section id="input">
+  <span class="label-pill">Setup</span>
+  <h2>Input</h2><p class="lead">Edit any value. Need is calculated for you.</p>
+  <div class="bar">
+    <label>Processes <input type="number" id="nProc" min="1" max="8" value="3"></label>
+    <label>Resource types <input type="number" id="nRes" min="1" max="6" value="3"></label>
+    <button id="btnGen">Generate Tables</button>
+    <button id="btnRandom">Random Scenario</button>
+  </div>
+  <div id="error" class="error" hidden></div>
+  <div class="grid">
+    <div class="card"><h3>Allocation</h3><div id="allocT"></div></div>
+    <div class="card"><h3>Maximum</h3><div id="maxT"></div></div>
+    <div class="card"><h3>Available</h3><div id="availT"></div></div>
+  </div>
+</section>
+
+<section id="banker">
+  <span class="label-pill">Algorithm</span>
+  <h2>Banker's Algorithm</h2><p class="lead">Safe or unsafe, with the order in which processes can finish.</p>
+  <div class="cards" id="results"><p class="muted">Run the simulation to see results.</p></div>
+  <div class="card"><h3>Need Matrix (Maximum − Allocation)</h3><div id="needT"></div></div>
+  <div class="card" id="reqCard"><h3>Resource Request Check</h3>
+    <p class="muted" style="text-align:center">Can a process ask for more resources and still keep the system safe?</p>
+    <div class="bar"><label>Process <select id="reqP"></select></label><span id="reqInputs" class="reqin"></span><button class="primary" id="btnReq">Check Request</button></div>
+    <div id="reqOut"></div>
+  </div>
+</section>
+
+<section id="detect">
+  <span class="label-pill">Analysis</span>
+  <h2>Deadlock Detection</h2><p class="lead">Which processes can complete and which are stuck waiting.</p>
+  <div class="card" id="detectOut"><p class="muted">Run the simulation to check for deadlock.</p></div>
+</section>
+
+<section id="viz">
+  <span class="label-pill">Graph</span>
+  <h2>Process–Resource Graph</h2><p class="lead">Who holds what, and who is waiting for what.</p>
+  <div class="card">
+    <div class="legend"><span class="k alloc"></span>Allocated (R → P) <span class="k req"></span>Requested (P → R) <span class="k avail"></span>Available units. Green node can finish, red node is blocked.</div>
+    <svg id="graph" viewBox="0 0 560 300"></svg>
+  </div>
+</section>
+
+<section id="steps">
+  <span class="label-pill">Walkthrough</span>
+  <h2>Step-by-Step</h2><p class="lead">Walk through each check the algorithm makes.</p>
+  <div class="bar">
+    <button id="btnPrev">Previous Step</button><button id="btnNext">Next Step</button><button id="btnAuto">Auto Play</button>
+  </div>
+  <div class="card" id="stepOut"><p class="muted">Click “Run Step-by-Step” to begin.</p></div>
+</section>
+
+<section id="learn">
+  <span class="label-pill">Concepts</span>
+  <h2>Learn</h2>
+  <div class="grid">
+    <div class="card"><h3>What is deadlock?</h3><p>Deadlock is when a group of processes wait forever, each holding a resource another one needs. None can move, so none ever finishes.</p></div>
+    <div class="card"><h3>Four necessary conditions</h3><ol><li><b>Mutual exclusion:</b> a resource is used by one process at a time.</li><li><b>Hold and wait:</b> a process holds resources while waiting for more.</li><li><b>No preemption:</b> resources cannot be taken away by force.</li><li><b>Circular wait:</b> P1 waits for P2, P2 for … Pn, Pn for P1.</li></ol></div>
+    <div class="card"><h3>Deadlock prevention</h3><p>Break at least one condition: make resources shareable (mutual exclusion), request everything at start (hold and wait), allow the OS to preempt resources (no preemption), or number resources and request in order (circular wait).</p></div>
+    <div class="card"><h3>Deadlock avoidance</h3><p>The OS grants a request only if the system stays in a <b>safe state</b>: an order exists in which every process can finish. An <b>unsafe state</b> does not always deadlock, but it can.</p></div>
+    <div class="card"><h3>Banker's Algorithm</h3><ol><li>Need = Max − Allocation.</li><li>Work = Available; all processes unfinished.</li><li>Find an unfinished process with Need ≤ Work.</li><li>Pretend it finishes: Work = Work + its Allocation.</li><li>Repeat. If all finish, the state is safe and the order is the safe sequence.</li></ol></div>
+    <div class="card"><h3>Deadlock detection</h3><p>Same idea, but on the current state: processes holding nothing can finish, and any process whose request fits in Work finishes and returns its resources. Processes left over are deadlocked.</p></div>
+  </div>
+</section>
+</main>
+<footer class="foot">
+  <div>
+    <b class="logo">DeadlockSim</b>
+    <p>Deadlock Detection &amp; Prevention Simulator</p>
+    <p class="muted">Operating Systems Project</p>
+    <p class="muted">Visualizing resource allocation, synchronization and deadlock avoidance.</p>
+  </div>
+  <nav class="foot-links" aria-label="Footer">
+    <h3>Explore</h3>
+    <a href="#dashboard">Dashboard</a><a href="#input">Input</a><a href="#banker">Banker's Algorithm</a>
+    <a href="#detect">Deadlock Detection</a><a href="#viz">Visualization</a><a href="#steps">Step-by-Step</a><a href="#learn">Learn</a>
+  </nav>
+</footer>
+<button class="exit-present" id="btnExitPresent" hidden>Exit Presentation Mode</button>
+<script>
+/* Deadlock Detection & Prevention Simulator - Banker's Algorithm, detection, step-by-step, graph */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var D = { n: 3, m: 3 }, S = null, R = null, steps = [], idx = -1, timer = null;
+  var EX = {
+    safe: { A: [[0,1,0],[2,0,0],[3,0,2],[2,1,1],[0,0,2]], M: [[7,5,3],[3,2,2],[9,0,2],[2,2,2],[4,3,3]], V: [3,3,2] },
+    unsafe: { A: [[1,0,0],[0,1,0],[0,0,1]], M: [[1,1,0],[0,1,1],[1,0,1]], V: [0,0,0] }
+  };
+  var pn = function (i) { return 'P' + (i + 1); };
+  var vec = function (a) { return '[' + a.join(', ') + ']'; };
+  var res = function (a) { return a.map(function (x, k) { return 'R' + (k + 1) + ': ' + x; }).join('&nbsp; '); };
+  var fits = function (a, b) { return a.every(function (x, k) { return x <= b[k]; }); };
+  var add = function (a, b) { return a.map(function (x, k) { return x + b[k]; }); };
+  function showErr(msg) { var e = $('error'); e.textContent = msg; e.hidden = !msg; return null; }
+
+  /* ---- Matrices (generateMatrices) ---- */
+  function grid(id, t, rows, cols, vals) {
+    var h = '<table><tr><th></th>', i, j;
+    for (j = 0; j < cols; j++) h += '<th>R' + (j + 1) + '</th>';
+    h += '</tr>';
+    for (i = 0; i < rows; i++) {
+      h += '<tr><th>' + (t === 'V' ? 'Avail' : pn(i)) + '</th>';
+      for (j = 0; j < cols; j++) {
+        var v = vals ? (t === 'V' ? vals[j] : vals[i][j]) : 0;
+        var lab = (t === 'V' ? 'Available R' + (j + 1) : (t === 'A' ? 'Allocation ' : 'Maximum ') + pn(i) + ' R' + (j + 1));
+        h += '<td><input type="number" min="0" step="1" data-t="' + t + '" data-i="' + i + '" data-j="' + j + '" value="' + v + '" aria-label="' + lab + '"></td>';
+      }
+      h += '</tr>';
+    }
+    $(id).innerHTML = h + '</table>';
+  }
+  function generate(vals) {
+    var n = +$('nProc').value, m = +$('nRes').value;
+    if (!Number.isInteger(n) || n < 1 || n > 8) { showErr('Processes must be a whole number from 1 to 8.'); return false; }
+    if (!Number.isInteger(m) || m < 1 || m > 6) { showErr('Resource types must be a whole number from 1 to 6.'); return false; }
+    showErr(''); D = { n: n, m: m };
+    grid('allocT', 'A', n, m, vals && vals.A); grid('maxT', 'M', n, m, vals && vals.M); grid('availT', 'V', 1, m, vals && vals.V);
+    $('statN').textContent = n; $('statM').textContent = m;
+    buildReq(); liveUpdate();
+    return true;
+  }
+
+  /* ---- Validation (validateInput) ---- */
+  function read() {
+    var A = [], M = [], V = [], i, j;
+    for (i = 0; i < D.n; i++) { A[i] = []; M[i] = []; }
+    var inputs = document.querySelectorAll('[data-t]');
+    for (var k = 0; k < inputs.length; k++) {
+      var el = inputs[k], v = el.value.trim();
+      if (!/^\d+$/.test(v)) return showErr('Every cell needs a whole number (0 or more). No empty or negative values.');
+      var x = +v, t = el.dataset.t; i = +el.dataset.i; j = +el.dataset.j;
+      if (t === 'A') A[i][j] = x; else if (t === 'M') M[i][j] = x; else V[j] = x;
+    }
+    for (i = 0; i < D.n; i++) for (j = 0; j < D.m; j++)
+      if (M[i][j] < A[i][j]) return showErr('Maximum cannot be smaller than Allocation (' + pn(i) + ', R' + (j + 1) + ').');
+    showErr('');
+    return { n: D.n, m: D.m, A: A, M: M, V: V };
+  }
+
+  /* ---- Need = Maximum - Allocation (calculateNeed) ---- */
+  function need(s) { return s.M.map(function (r, i) { return r.map(function (x, j) { return x - s.A[i][j]; }); }); }
+  function renderNeed(N, active) {
+    var h = '<table><tr><th></th>';
+    N[0].forEach(function (_, j) { h += '<th>R' + (j + 1) + '</th>'; });
+    h += '</tr>';
+    N.forEach(function (r, i) {
+      h += '<tr class="' + (i === active ? 'active' : '') + '"><th>' + pn(i) + '</th>' + r.map(function (x) { return '<td>' + x + '</td>'; }).join('') + '</tr>';
+    });
+    $('needT').innerHTML = h + '</table>';
+  }
+
+  /* ---- Banker's Algorithm (safety check) ---- */
+  function banker(s) {
+    var N = need(s), w = s.V.slice(), fin = s.A.map(function () { return false; }), seq = [], st = [], go = true, i;
+    while (go) {
+      go = false;
+      for (i = 0; i < s.n; i++) {
+        if (fin[i]) continue;
+        var ok = fits(N[i], w), e = { p: i, need: N[i], work: w.slice(), ok: ok };
+        if (ok) {                       // pretend P(i) finishes and releases what it holds
+          e.rel = s.A[i].slice(); w = add(w, s.A[i]); e.after = w.slice();
+          fin[i] = true; seq.push(i); go = true;
+        }
+        st.push(e);
+      }
+    }
+    var bl = []; fin.forEach(function (f, k) { if (!f) bl.push(k); });
+    return { safe: !bl.length, seq: seq, steps: st, blocked: bl, fin: fin };
+  }
+
+  /* ---- Deadlock detection: holders of nothing finish; others finish if their need fits ---- */
+  function detect(s) {
+    var N = need(s), w = s.V.slice(), ch = true, i;
+    var fin = s.A.map(function (r) { return r.every(function (x) { return x === 0; }); });
+    while (ch) {
+      ch = false;
+      for (i = 0; i < s.n; i++) if (!fin[i] && fits(N[i], w)) { fin[i] = true; w = add(w, s.A[i]); ch = true; }
+    }
+    return fin;
+  }
+
+  /* ---- Rendering ---- */
+  function badges(list, arrows, bad) {
+    return '<div class="seq">' + list.map(function (p, k) {
+      return (k && arrows ? '<span class="seq-arrow">&rarr;</span>' : '') + '<span class="seq-badge' + (bad ? ' bad' : '') + '" style="--i:' + k + '">' + pn(p) + '</span>';
+    }).join('') + '</div>';
+  }
+  function updateResults(s) {
+    var r = R;
+    $('results').innerHTML =
+      '<div class="card ' + (r.safe ? 'ok' : 'bad') + '"><h3>' + (r.safe ? '🟢 SYSTEM IS SAFE' : '🔴 SYSTEM IS UNSAFE') + '</h3><p>' +
+      (r.safe ? 'All processes can complete without causing deadlock.' : 'Available resources are insufficient to guarantee completion.') + '</p></div>' +
+      (r.safe ? '<div class="card"><h3>Safe Sequence</h3>' + badges(r.seq, true) + '</div>'
+              : '<div class="card"><h3>Blocked Processes</h3>' + badges(r.blocked, false, true) + '</div>');
+    $('statSys').textContent = r.safe ? 'SAFE' : 'UNSAFE';
+    $('statSafe').textContent = r.safe ? r.seq.map(pn).join(' → ') : 'No safe sequence';
+    var fin = detect(s), done = fin.filter(Boolean).length, dead = [];
+    fin.forEach(function (f, i) { if (!f) dead.push(i); });
+    $('detectOut').innerHTML =
+      '<div class="mini"><div><small>Processes completed</small><strong>' + done + '</strong></div><div><small>Processes blocked</small><strong>' + dead.length +
+      '</strong></div><div><small>Deadlock status</small><strong class="' + (dead.length ? 'bad' : 'ok') + '">' + (dead.length ? 'DETECTED' : 'NONE') + '</strong></div></div>' +
+      (dead.length ? '<p>🔴 DEADLOCK DETECTED. Processes involved:</p>' + badges(dead, false, true) : '<p>🟢 NO DEADLOCK DETECTED. Every process can complete.</p>');
+  }
+  function graph(s, fin, cur) {
+    var n = s.n, m = s.m, H = 300, N = need(s), i, j;
+    var py = function (a) { return (a + 0.5) * H / n; }, ry = function (b) { return (b + 0.5) * H / m; };
+    var pr = Math.min(24, H / n / 2 - 4), rh = Math.min(46, H / m - 8);
+    var o = '<defs><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#a6f0c6"/></marker>' +
+      '<marker id="mr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffc2d6"/></marker></defs>';
+    for (i = 0; i < n; i++) for (j = 0; j < m; j++) {
+      if (s.A[i][j] > 0) o += '<line class="ea" x1="420" y1="' + (ry(j) + 3) + '" x2="' + (120 + pr + 4) + '" y2="' + (py(i) + 3) + '" marker-end="url(#ma)"/>';
+      if (N[i][j] > 0) o += '<line class="er" x1="' + (120 + pr) + '" y1="' + (py(i) - 3) + '" x2="416" y2="' + (ry(j) - 3) + '" marker-end="url(#mr)"/>';
+    }
+    for (i = 0; i < n; i++) {
+      var c = fin ? (fin[i] ? ' good' : ' bad') : '';
+      o += '<circle class="nd' + c + (i === cur ? ' cur' : '') + '" cx="120" cy="' + py(i) + '" r="' + pr + '"/><text x="120" y="' + (py(i) + 5) + '">' + pn(i) + '</text>';
+    }
+    for (j = 0; j < m; j++)
+      o += '<rect class="nd rs" x="420" y="' + (ry(j) - rh / 2) + '" width="120" height="' + rh + '" rx="12"/><text x="480" y="' + (ry(j) + 5) + '">R' + (j + 1) + ' · ' + s.V[j] + ' free</text>';
+    $('graph').innerHTML = o;
+  }
+  function liveUpdate() {   // refresh Need table + graph whenever inputs change
+    var s = read();
+    if (s) { renderNeed(need(s), -1); graph(s, null, -1); }
+  }
+
+  /* ---- Run (runBankersAlgorithm) ---- */
+  function run() {
+    var s = read();
+    if (!s) return false;
+    S = s; R = banker(s);
+    renderNeed(need(s), -1); graph(s, R.fin, -1); updateResults(s);
+    return true;
+  }
+
+  /* ---- Step-by-step (runStepByStep / nextStep / previousStep / autoPlay) ---- */
+  function showStep() {
+    var e = steps[idx], fin = S.A.map(function () { return false; });
+    steps.slice(0, idx + 1).forEach(function (x) { if (x.ok) fin[x.p] = true; });
+    var tl = steps.map(function (x, k) {
+      var lab = x.final ? 'Final state' : 'Check ' + pn(x.p) + (x.ok ? ' &rarr; runs' : ' &rarr; waits');
+      return '<li class="' + (k < idx ? 'done' : k === idx ? 'now' : '') + '">' + (k < idx ? '✓' : k === idx ? '●' : '○') + ' Step ' + (k + 1) + ' — ' + lab + '</li>';
+    }).join('');
+    var b;
+    if (e.final) {
+      b = '<h3>FINAL STATE</h3><p>' + (R.safe ? '🟢 SYSTEM IS SAFE. Safe sequence: ' + R.seq.map(pn).join(' → ') : '🔴 SYSTEM IS UNSAFE. Blocked: ' + R.blocked.map(pn).join(', ')) + '</p>';
+    } else {
+      b = '<h3>STEP ' + (idx + 1) + '</h3><p><b>Checking:</b> ' + pn(e.p) + '</p><p><b>Need:</b> ' + res(e.need) + '</p><p><b>Available:</b> ' + res(e.work) +
+        '</p><p><b>Result:</b> ' + (e.ok ? '✓ ' + pn(e.p) + ' can execute.' : '✗ ' + pn(e.p) + ' must wait (Need is more than Available).') + '</p>';
+      if (e.ok) b += '<p><b>Resources released:</b> + ' + vec(e.rel) + '</p><p><b>Updated Available:</b> ' + vec(e.work) + ' → <span class="changed">' + vec(e.after) + '</span></p>';
+    }
+    $('stepOut').innerHTML = '<div class="split"><ol class="tl">' + tl + '</ol><div>' + b + '<p class="muted">Step ' + (idx + 1) + ' / ' + steps.length +
+      '</p><div class="prog"><i style="width:' + ((idx + 1) / steps.length * 100) + '%"></i></div></div></div>';
+    renderNeed(need(S), e.final ? -1 : e.p); graph(S, fin, e.final ? -1 : e.p);
+  }
+  function stopAuto() { clearInterval(timer); timer = null; $('btnAuto').textContent = 'Auto Play'; }
+  function startSteps() {
+    if (!run()) return;
+    steps = R.steps.concat([{ final: true }]); idx = 0; showStep();
+    $('steps').scrollIntoView({ behavior: 'smooth' });
+  }
+  function nextStep() { if (!steps.length) return startSteps(); if (idx < steps.length - 1) { idx++; showStep(); } else stopAuto(); }
+  function previousStep() { if (steps.length && idx > 0) { idx--; showStep(); } }
+  function autoPlay() {
+    if (timer) return stopAuto();
+    if (!steps.length) { startSteps(); if (!steps.length) return; }
+    $('btnAuto').textContent = 'Pause';
+    timer = setInterval(function () { if (idx >= steps.length - 1) stopAuto(); else { idx++; showStep(); } }, 1400);
+  }
+
+  /* ---- Examples and reset ---- */
+  function load(key) {
+    var ex = EX[key]; stopAuto(); steps = []; idx = -1;
+    $('nProc').value = ex.A.length; $('nRes').value = ex.V.length;
+    if (generate(ex)) run();
+  }
+  function resetSimulation() {
+    stopAuto(); steps = []; idx = -1; S = null; R = null;
+    $('nProc').value = 3; $('nRes').value = 3; generate();
+    $('results').innerHTML = '<p class="muted">Run the simulation to see results.</p>';
+    $('detectOut').innerHTML = '<p class="muted">Run the simulation to check for deadlock.</p>';
+    $('stepOut').innerHTML = '<p class="muted">Click “Run Step-by-Step” to begin.</p>';
+    $('statSys').textContent = 'Not run'; $('statSafe').textContent = '-';
+  }
+
+  /* ---- Resource request check (Banker's resource-request algorithm) ---- */
+  function buildReq() {
+    var o = '', h = '', i, j;
+    for (i = 0; i < D.n; i++) o += '<option value="' + i + '">' + pn(i) + '</option>';
+    for (j = 0; j < D.m; j++) h += '<label>R' + (j + 1) + ' <input type="number" min="0" step="1" value="0" data-q="' + j + '" aria-label="Request R' + (j + 1) + '"></label> ';
+    $('reqP').innerHTML = o; $('reqInputs').innerHTML = h; $('reqOut').innerHTML = '';
+  }
+  function checkRequest() {
+    var s = read(); if (!s) return;
+    var p = +$('reqP').value, q = [], ins = document.querySelectorAll('[data-q]'), k;
+    for (k = 0; k < ins.length; k++) {
+      if (!/^\d+$/.test(ins[k].value.trim())) return showErr('Request values must be whole numbers (0 or more).');
+      q.push(+ins[k].value);
+    }
+    var N = need(s), cls = 'bad', msg;
+    if (!fits(q, N[p])) msg = '🔴 Request denied: ' + pn(p) + ' asked for more than its declared maximum need ' + vec(N[p]) + '.';
+    else if (!fits(q, s.V)) { cls = ''; msg = '🟡 ' + pn(p) + ' must wait: it asked for ' + vec(q) + ' but only ' + vec(s.V) + ' is available.'; }
+    else {                                   // pretend to grant, then run the safety check
+      var t = { n: s.n, m: s.m, M: s.M, V: s.V.map(function (x, i) { return x - q[i]; }), A: s.A.map(function (r) { return r.slice(); }) };
+      t.A[p] = add(t.A[p], q);
+      var r = banker(t);
+      if (r.safe) { cls = 'ok'; msg = '🟢 Request can be granted. The system stays safe. Safe sequence: ' + r.seq.map(pn).join(' → '); }
+      else msg = '🔴 Request denied: granting it would make the system unsafe (blocked: ' + r.blocked.map(pn).join(', ') + ').';
+    }
+    showErr('');
+    $('reqOut').innerHTML = '<div class="card ' + cls + '"><p>' + msg + '</p></div>';
+  }
+
+  /* ---- Random scenario ---- */
+  function randomScenario() {
+    stopAuto(); steps = []; idx = -1;
+    if (!generate()) return;
+    var rnd = function (k) { return Math.floor(Math.random() * (k + 1)); }, A = [], M = [], V = [], i, j;
+    for (i = 0; i < D.n; i++) { A[i] = []; M[i] = []; for (j = 0; j < D.m; j++) { A[i][j] = rnd(3); M[i][j] = A[i][j] + rnd(4); } }
+    for (j = 0; j < D.m; j++) V[j] = rnd(3);
+    generate({ A: A, M: M, V: V }); run();
+  }
+
+  /* ---- Presentation mode ---- */
+  function togglePresentationMode(force) {
+    var on = document.body.classList.toggle('present', force);
+    $('btnExitPresent').hidden = !on; window.scrollTo(0, 0);
+  }
+
+  $('btnRun').onclick = run;
+  $('btnStep').onclick = startSteps;
+  $('btnSafe').onclick = function () { load('safe'); };
+  $('btnUnsafe').onclick = function () { load('unsafe'); };
+  $('btnReset').onclick = resetSimulation;
+  $('btnGen').onclick = function () { stopAuto(); steps = []; idx = -1; generate(); };
+  $('btnPrev').onclick = previousStep;
+  $('btnNext').onclick = nextStep;
+  $('btnAuto').onclick = autoPlay;
+  $('btnReq').onclick = checkRequest;
+  $('btnRandom').onclick = randomScenario;
+  $('btnPresent').onclick = function () { togglePresentationMode(true); };
+  $('btnExitPresent').onclick = function () { togglePresentationMode(false); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.body.classList.contains('present')) togglePresentationMode(false); });
+  document.addEventListener('input', function (e) { if (e.target.dataset && e.target.dataset.t) liveUpdate(); });
+  resetSimulation();
+})();
+
+</script>
+<script>
+/* extra.js - visual add-ons: falling petals, nav highlight, collapsible Learn cards */
+(function () {
+  'use strict';
+  /* Cherry blossom tree in the background (inline SVG, no image files) */
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(n, a, p) { var e = document.createElementNS(NS, n); for (var k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+  var tree = el('svg', { viewBox: '0 0 1000 700', preserveAspectRatio: 'xMidYMid slice', 'class': 'tree', 'aria-hidden': 'true' });
+  var grad = el('radialGradient', { id: 'pg', cx: '50%', cy: '70%', r: '70%' }, el('defs', {}, tree));
+  el('stop', { offset: '0', 'stop-color': '#fff1f6' }, grad); el('stop', { offset: '1', 'stop-color': '#f4a0bf' }, grad);
+  [['M10 720C30 600 50 500 110 410', 40], ['M110 410C160 340 230 300 330 250', 17], ['M330 250C400 215 470 150 560 110', 12], ['M560 110C600 90 650 80 700 50', 7],
+   ['M110 410C90 340 100 250 150 170', 13], ['M150 170C190 120 230 90 280 40', 7], ['M1020 20C930 40 850 90 790 170', 14],
+   ['M790 170C760 210 700 240 650 300', 8], ['M905 50C880 110 900 160 870 220', 7]].forEach(function (b) {
+    el('path', { d: b[0], stroke: '#5b3a40', 'stroke-width': b[1], fill: 'none', 'stroke-linecap': 'round' }, tree);
+  });
+  var pts = [[330,250,1],[400,230,.8],[470,170,1.1],[560,110,1],[640,70,.8],[700,50,.9],[230,300,.8],[150,170,1.1],[210,110,.8],[280,40,.9],
+             [100,260,.8],[790,170,1],[850,100,.8],[920,45,1],[700,240,.8],[650,300,.9],[880,210,.8],[110,410,1.1],[60,520,.8]];
+  pts.forEach(function (p) {
+    el('ellipse', { cx: p[0] + 14, cy: p[1] + 12, rx: 5, ry: 11, fill: '#8fb06a', transform: 'rotate(-40 ' + (p[0] + 14) + ' ' + (p[1] + 12) + ')' }, tree);
+  });
+  pts.forEach(function (p) {
+    var f = el('g', { transform: 'translate(' + p[0] + ' ' + p[1] + ') rotate(' + Math.round(Math.random() * 72) + ') scale(' + p[2] + ')' }, tree);
+    for (var k = 0; k < 5; k++) el('ellipse', { cx: 0, cy: -15, rx: 11, ry: 16, fill: 'url(#pg)', stroke: '#f08fb2', 'stroke-width': 0.6, transform: 'rotate(' + k * 72 + ')' }, f);
+    el('circle', { r: 4, fill: '#ffd66b' }, f);
+  });
+  document.body.insertBefore(tree, document.body.firstChild);
+
+  /* Falling cherry petals (pure CSS animation, no images) */
+  var box = document.createElement('div');
+  box.className = 'petals'; box.setAttribute('aria-hidden', 'true');
+  for (var i = 0; i < 18; i++) {
+    var p = document.createElement('i');
+    p.className = 'petal';
+    p.style.cssText = 'left:' + (Math.random() * 100) + '%;--s:' + (10 + Math.random() * 16) + 'px;--d:' + (9 + Math.random() * 10) +
+      's;--w:-' + (Math.random() * 14) + 's;--x:' + (Math.random() * 160 - 80) + 'px';
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+
+  /* Highlight the nav link of the section in view */
+  var nav = document.getElementById('nav'), links = [].slice.call(document.querySelectorAll('#nav a')), byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = byId[e.target.id];
+        if (a) { a.classList.add('active'); nav.scrollTo({ left: a.offsetLeft - nav.clientWidth / 2 + a.clientWidth / 2, behavior: 'smooth' }); }
+      });
+    }, { rootMargin: '-35% 0px -55% 0px' });
+    document.querySelectorAll('main section').forEach(function (s) { io.observe(s); });
+  }
+
+  /* Learn cards open/close; first starts open */
+  document.querySelectorAll('#learn .card').forEach(function (c, i) {
+    var h = c.querySelector('h3'); if (!h) return;
+    c.classList.add('acc'); h.tabIndex = 0; h.setAttribute('role', 'button');
+    function set(o) { c.classList.toggle('open', o); h.setAttribute('aria-expanded', String(o)); }
+    set(i === 0);
+    h.addEventListener('click', function () { set(!c.classList.contains('open')); });
+    h.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
+  });
+})();
+
+</script>
+</body>
+</html>
